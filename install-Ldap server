@@ -1,0 +1,163 @@
+The installation steps for various versions of LDAP Server released on the network are unclear and unsuccessful, so today we are going to show you how to properly install and configure the LDAP Server in ubntu。
+
+網絡上發布的各種版本的ldap server 的安裝步驟很多人反映步驟不清楚，安裝不成功，所以今天給大家帶來的是如何在uabntu18.04中正確安裝配置LDAP SERVER服務器端。
+
+一、更新和升級系統，請使用以下命令
+$ sudo apt-get update 
+$ sudo apt-get upgrade 
+
+二、安裝必要的網頁服務程序
+$ sudo apt-get install php7.4
+很多人運行上述命令無法安裝php7.4，那麼請執行下面的程序，並重新安裝php7.4.
+$ sudo apt-add-repository ppa:ondrej/php
+$ sudo apt-get update
+$ sudo apt-get install php7.4
+
+查看php安裝是否成功並繼續安裝：
+$ php -v 
+$ sudo apt-get install php7.4-xml
+$ sudo apt-get install php7.4-ldap
+$ sudo apt-get install php7.4-cgi
+
+
+三、現在開始安裝ldap server
+
+$ sudo apt install slapd ldap-utils
+
+四、配置ldap.conf 文件，運行下面的命令，並找到對應行修改文件
+
+$ sudo vim /etc/ldap/ldap.conf
+
+base    dc=你的域名,dc=local
+URI     ldap://你的ubantu的ip地址     
+
+
+五、使用下面的命令重新配置ldap,根據提示按照下面內容修改
+$ sudo dpkg-reconfigure slapd
+
+ NO
+ 你的域名.local
+ 你的域名
+ password
+ password
+ MDB
+ NO
+ Yes
+
+六、現在檢查ldap 服務情況及驗證ldap是否工作
+$ sudo service slapd status
+
+$ sudo slapcat
+$ ldapsearch -x
+$ ldapwhoami -H ldap:// -x
+
+
+七、安裝git並從github網站克隆
+
+$ sudo apt-get install git
+$ sudo git  clone https://github.com/breisig/phpLDAPadmin.git
+
+八、使用下面命令複製文件
+$ sudo cp -R phpLDAPadmin/ /var/www/html/phpldapadmin
+$ cd /var/www/html/phpldapadmin/
+$ cd config
+$ sudo cp config.php.example config.php
+
+
+
+
+九、修改配置文件config.php
+
+root@ubuntu:/var/www/html/phpldapadmin/config# sudo vim config.php
+
+在161行： $config->custom->appearance['hide_template_warning'] = fales;
+修改後： $config->custom->appearance['hide_template_warning'] = true;
+
+在286行： $servers->setValue('server','name','Example LDAP');
+修改後： $servers->setValue('server','name','你的域名 LDAP Server');
+
+在327行: $servers->setValue('login','bind_id','cn=admin,dc=你的域名,dc=local');
+修改後： $servers->setValue('login','bind_id','cn=admin,dc=你的域名,dc=local');
+
+在395行: $servers->setValue('login','base',array());
+修改後： $servers->setValue('server','base', array('dc=你的域名,dc=local'));
+
+
+十： 需要為初始化ldap server 創建文件，並複製內容（中文部分替換為你自己的相應域名）
+
+#  sudo vim  group1.ldif
+
+#cat group1.ldif
+dn: cn=admin,ou=groups,dc=你的域名,dc=local
+objectClass: top
+objectClass: posixGroup
+gidNumber: 500
+
+----------------------
+# sudo vim  add_index.ldif
+
+dn: olcDatabase={1}mdb,cn=config
+add: olcDbIndex
+olcDbIndex: mail eq,sub
+
+------------
+# sudo vim  add_nodes.ldif
+
+dn: ou=people,dc=你的域名,dc=local
+objectClass: organizationalUnit
+ou: People
+
+dn: ou=groups,dc=你的域名,dc=local
+objectClass: organizationalUnit
+ou: Groups
+
+
+---------------
+# sudo vim add_user-group.ldif
+
+# cat group1.ldif
+dn: cn=users,ou=groups,dc=你的域名,dc=local
+objectClass: top
+objectClass: posixGroup
+gidNumber: 600
+
+--------
+# sudo vim  logging.ldif
+dn: cn=config
+changetype: modify
+replace: olcLogLevel
+olcLogLevel: stats
+
+---------
+# sudo vim memberof_config.ldif
+
+dn: cn=module,cn=config
+cn: module
+objectClass: olcModuleList
+olcModuleLoad: memberof
+olcModulePath: /usr/lib/ldap
+
+dn: olcOverlay={0}memberof,olcDatabase={1}mdb,cn=config
+objectClass: olcConfig
+objectClass: olcMemberOf
+objectClass: olcOverlayConfig
+objectClass: top:wq!
+olcOverlay: memberof
+olcMemberOfDangling: ignore
+olcMemberOfRefInt: TRUE
+olcMemberOfGroupOC: groupOfNames
+olcMemberOfMemberAD: member
+olcMemberOfMemberOfAD: memberOf
+
+
+啟動aoache2服務
+# sudo /etc/init.d/apache2 restart
+
+恭喜大家已經成功安裝ldap server，可以進入網頁測試
+
+http://你的ubantu的ip地址/phpldapadmin
+
+Please share the above information if it is useful to you！
+如果對大家有用，請分享。
+
+
